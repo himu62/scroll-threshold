@@ -1,0 +1,137 @@
+<!--
+Thanks for The Polymer Project
+This component is converted for Polymer 1.0, and the origin is Polymer/core-scroll-threshold
+
+Copyright (c) 2014 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+<dom-module id="scroll-threshold"></dom-module>
+<script>
+Polymer({
+	is: 'scroll-threshold',
+	properties: {
+		scrollTarget: {
+			type: String,
+			value: null
+		},
+		orient: {
+			type: String,
+			value: 'v'
+		},
+		upperThreshold: {
+			type: Number,
+			value: null
+		},
+		lowerThreshold: {
+			type: Number,
+			value: null
+		},
+		upperTriggered: {
+			type: Boolean,
+			value: false
+		},
+		lowerTriggered: {
+			type: Boolean,
+			value: false
+		}
+	},
+	observers: [
+		'_setup(scrollTarget, orient, upperThreshold, lowerThreshold)'
+	],
+	ready: function() {
+		this._boundScrollHandler = this.checkThreshold.bind(this);
+		this._setup();
+	},
+	deatached: function() {
+		if(this._scrollTarget)
+			this._scrollTarget.removeEventListener('scroll', this._boundScrollHandler);
+	},
+	_setup: function() {
+		var target = this.scrollTarget || this;
+		if(this._scrollTarget && (this._scrollTarget != target)) {
+			this._scrollTarget.removeEventListener('scroll', this._boundScrollHandler);
+		}
+		if(target) {
+			this._scrollTarget = target;
+			this._scrollTarget.addEventListener('scroll', this._boundScrollHandler);
+		}
+		//this.style.overflow = (target == this) ? 'auto' : null;
+		if(target == this) {
+			this.style.overflow = 'auto';
+			this.style.display = 'block';
+			this.removeAttribute('hidden');
+		} else {
+			this.style.overflow = null;
+			this.style.display = null;
+			this.setAttribute('hidden', 'hidden');
+		}
+		this.scrollPosition = (this.orient == 'v') ? 'scrollTop' : 'scrollLeft';
+		this.sizeExtent = (this.orient == 'v') ? 'offsetHeight' : 'offsetWidth';
+		this.scrollExtent = (this.orient == 'v') ? 'scrollHeight' : 'scrollWidth';
+		if(!this.upperThreshold)
+			this.upperTriggered = false;
+		if(!this.lowerThreshold)
+			this.lowerTriggered = false;
+	},
+	checkThreshold: function(e) {
+		var top = this._scrollTarget[this.scrollPosition];
+		if(!this.upperTriggered && this.upperThreshold !== null) {
+			if(top < this.upperThreshold) {
+				if(this.lowerThreshold === null || this.lowerTriggered) {
+					this._scrollTarget.removeEventListener('scroll', this._boundScrollHandler);
+				}
+				this.upperTriggered = true;
+				this.fire('upper-trigger');
+			}
+		}
+		if(!this.lowerTriggered && this.lowerThreshold !== null) {
+			var bottom = top + this._scrollTarget[this.sizeExtent];
+			var size = this._scrollTarget[this.scrollExtent];
+			if((size - bottom) < this.lowerThreshold) {
+				if(this.upperThreshold === null || this.upperTriggered) {
+					this._scrollTarget.removeEventListener('scroll', this._boundScrollHandler);
+				}
+				this.lowerTriggered = true;
+				this.fire('lower-trigger');
+			}
+		}
+	},
+	clearUpper: function(waitForMutation) {
+		if(waitForMutation) {
+			this._waitForMutation(function() {
+				this.clearUpper();
+			}.bind(this));
+		} else {
+			this.async(function() {
+				this.upperTriggered = false;
+				this._scrollTarget.addEventListener('scroll', this._boundScrollHandler);
+			});
+		}
+	},
+	clearLower: function(waitForMutation) {
+		if(waitForMutation) {
+			this._waitForMutation(function() {
+				this.clearLower();
+			}.bind(this));
+		} else {
+			this.async(function() {
+				this.lowerTriggered = false;
+				this._scrollTarget.addEventListener('scroll', this._boundScrollHandler);
+			});
+		}
+	},
+	_waitForMutation: function(listener) {
+		var observer = new MutationObserver(function(mutations) {
+			listener.call(this, observer, mutations);
+			observer.disconnect();
+		}.bind(this));
+		observer.observe(this._scrollTarget, {attributes: true, childList: true, subtree: true});
+	}
+});
+</script>
